@@ -24,15 +24,14 @@
   (assoc order :line-items (keep-indexed #(when-not (= %1 idx) %2) line-items)))
 
 (defn estimate-line-item-net-price [line-item]
-  (let [plan (line-item :rate-plan-ref)]
-    (* (plan :price) (line-item :quantity))))
+  (* (-> line-item :rate-plan-ref :price) (line-item :quantity)))
 
 (defn estimate-order-net-price [order]
-  (let [line-items (order :line-items)]
-      (reduce + (map estimate-line-item-net-price line-items))))
+  (reduce + (map estimate-line-item-net-price (order :line-items))))
 
 (defn checkout [order]
   (println "Make user pay $" (estimate-order-net-price order))
+  (println "Items in cart:" (count (order :line-items)))
   (println "Start shipping"))
 
 (defn create-rate-plan []
@@ -46,8 +45,10 @@
       (create-line-item :product-a :rate-plan-b 5 {}))
   (remove-line-item {:line-items [:a :b :c]} 1)
   (def rate-plan-test (create-rate-plan))
-  (-> (create-order)
-      (create-line-item :product-a rate-plan-test 5 {})
-      (create-line-item :product-b rate-plan-test 10 {})
+  (-> (create-order)                                        ; create an order
+      (create-line-item :product-a rate-plan-test 5 {})     ; add item to order
+      (create-line-item :product-b rate-plan-test 10 {})    ; add another item to order
+      (remove-line-item 1)                                  ; remove line item with index 1
+      (create-line-item :product-c rate-plan-test 3 {})     ; add another item to order
       (checkout)))
 #_(clojure.stacktrace/e)
