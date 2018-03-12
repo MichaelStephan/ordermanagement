@@ -13,9 +13,9 @@
 
 (defn create-line-item [{:keys [line-items] :as order} product-ref rate-plan-ref quantity config]
   (let [line-item {:product-ref product-ref
-                    :rate-plan-ref rate-plan-ref
-                    :quantity quantity
-                    :config config}]
+                   :rate-plan-ref rate-plan-ref
+                   :quantity quantity
+                   :config config}]
     (-> order
         (update :line-items conj line-item)
         (merge-line-items))))
@@ -23,18 +23,34 @@
 (defn remove-line-item [{:keys [line-items] :as order} idx]
   (assoc order :line-items (keep-indexed #(when-not (= %1 idx) %2) line-items)))
 
-(defn estimate-line-item-net-price [line-item])
+(defn estimate-line-item-net-price [line-item]
+  (let [plan (line-item :rate-plan-ref)]
+    (* (plan :price) (line-item :quantity))))
 
-(defn estimate-order-net-price [order])
+(defn estimate-order-net-price [order]
+  (let [line-items (order :line-items)]
+      (reduce + (map estimate-line-item-net-price line-items))))
 
 (defn checkout [order])
 
+(defn create-rate-plan []
+  {:id (gensym)
+   :price 5})
 
 (comment
   (create-order)
   (-> (create-order)
       (create-line-item :product-a :rate-plan-a 5 {})
       (create-line-item :product-a :rate-plan-b 5 {}))
-  (remove-line-item {:line-items [:a :b :c]} 1))
-
+  (remove-line-item {:line-items [:a :b :c]} 1)
+  (def rate-plan-test (create-rate-plan))
+  (-> (create-order)
+      (create-line-item :product-a rate-plan-test 5 {})
+      (create-line-item :product-b rate-plan-test 10 {})
+      (estimate-order-net-price))
+  (def order-test (create-order))
+  (-> order-test
+      (create-line-item :product-c rate-plan-test 3 {})
+      (create-line-item :product-d rate-plan-test 2 {})
+      (estimate-order-net-price)))
 #_(clojure.stacktrace/e)
