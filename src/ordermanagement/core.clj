@@ -31,11 +31,13 @@
   (let [line-items (order :line-items)]
       (reduce + (map estimate-line-item-net-price line-items))))
 
-(defn checkout [order])
+(defn checkout [order]
+  (println "Make user pay $" (estimate-order-net-price order))
+  (println "Start shipping"))
 
 (defn create-rate-plan []
   {:id (gensym)
-   :price 5})
+   :price 5.0})
 
 (comment
   (create-order)
@@ -47,10 +49,5 @@
   (-> (create-order)
       (create-line-item :product-a rate-plan-test 5 {})
       (create-line-item :product-b rate-plan-test 10 {})
-      (estimate-order-net-price))
-  (def order-test (create-order))
-  (-> order-test
-      (create-line-item :product-c rate-plan-test 3 {})
-      (create-line-item :product-d rate-plan-test 2 {})
-      (estimate-order-net-price)))
+      (checkout)))
 #_(clojure.stacktrace/e)
