@@ -50,5 +50,6 @@
       (create-line-item :product-b rate-plan-test 10 {})    ; add another item to order
       (remove-line-item 1)                                  ; remove line item with index 1
       (create-line-item :product-c rate-plan-test 3 {})     ; add another item to order
+      (create-line-item :product-c rate-plan-test 2 {})     ; add line item of same product type
       (checkout)))
 #_(clojure.stacktrace/e)
