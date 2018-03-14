@@ -48,14 +48,51 @@
   (println "Items in cart:" (count (:line-items order)))
   (println "Start shipping"))
 
+(defn- pre-validate-merge-line-items [order]
+  (println "pre-validate-merge-line-items"))
 
+(defn- post-validate-merge-line-items [order]
+  (println "post-validate-merge-line-items"))
 
+(defn- pre-validate-create-line-item [order]
+  (println "pre-validate-create-line-item"))
 
-(def registry {:default {:merge-line-items merge-line-items
-                          :create-line-item create-line-item
-                          :remove-line-item remove-line-item
-                          :estimate-order-net-price estimate-order-net-price
-                          :checkout checkout}
+(defn- post-validate-create-line-item [order]
+  (println "post-validate-create-line-item"))
+
+(defn- pre-validate-remove-line-item [order]
+  (println "pre-validate-remove-line-item"))
+
+(defn- post-validate-remove-line-item [order]
+  (println "post-validate-remove-line-item"))
+
+(defn- pre-validate-estimate-order-net-price [order]
+  (println "pre-validate-estimate-order-net-price"))
+
+(defn- post-validate-estimate-order-net-price [order]
+  (println "post-validate-estimate-order-net-price"))
+
+(defn- pre-validate-checkout [order]
+  (println "pre-validate-checkout"))
+
+(defn- post-validate-checkout [order]
+  (println "post-validate-checkout"))
+
+(def registry {:default {:merge-line-items {:pre-validate pre-validate-merge-line-items
+                                            :func merge-line-items
+                                            :post-validate post-validate-merge-line-items}
+                          :create-line-item {:pre-validate pre-validate-create-line-item
+                                             :func create-line-item
+                                             :post-validate post-validate-create-line-item}
+                          :remove-line-item {:pre-validate pre-validate-remove-line-item
+                                             :func remove-line-item
+                                             :post-validate post-validate-remove-line-item}
+                          :estimate-order-net-price {:pre-validate pre-validate-estimate-order-net-price
+                                                     :func estimate-order-net-price
+                                                     :post-validate post-validate-estimate-order-net-price}
+                          :checkout {:pre-validate pre-validate-checkout
+                                     :func checkout
+                                     :post-validate post-validate-checkout}}
                :daniel { :checkout checkout}})
                 ;:customer_a {:checkout customer-a-checkout} 
                 ;:customer_b {:create-line-item customer-b-create-line-item}})
@@ -67,7 +104,7 @@
 (defn- fallback [func-name]
   (let [default (get registry :default)]
     (if (contains? default (keyword func-name))
-      (call default func-name)
+      (call (get-in default [(keyword func-name)]) :func)
       (str "function doesn't exist in scope"))))
 
 (defn- get-func [customer func-name]
@@ -78,23 +115,20 @@
         (fallback func-name)))
     (fallback func-name)))
 
-(defn pre-validate [order]
-  ,,,)
-
-(defn post-validate [order]
-  ,,,)
-
 (defn invoke [order customer func-name & args]
   (let [func (get-func customer func-name)]
         (if-not (fn? func)
           (do
             (throw (Exception. func))
             (println func)
-            args)
+            order)
           (do
-            (pre-validate args)
-            (apply func order args)
-            (post-validate args))))
+            (-> (call (get-in registry [:default (keyword func-name)]) :pre-validate)
+                (apply [order]))                                                            ; call pre validate
+            (apply func order args)                                                         ; call actual function
+            (-> (call (get-in registry [:default (keyword func-name)]) :post-validate)
+                (apply [order]))                                                            ; call post validate
+            order)))
   ;(if-not (s/valid? ::order args)
   ;  (throw (ex-info (s/explain-str ::order args)
   ;                  (s/explain-data ::order args))))
