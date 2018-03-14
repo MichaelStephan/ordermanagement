@@ -46,7 +46,8 @@
 (defn checkout [order]
   (println "Make user pay $" (some-> order estimate-order-net-price :net-price))
   (println "Items in cart:" (count (:line-items order)))
-  (println "Start shipping"))
+  (println "Start shipping")
+  order)
 
 (defn- pre-validate-merge-line-items [order]
   (println "pre-validate-merge-line-items"))
@@ -125,10 +126,10 @@
           (do
             (-> (call (get-in registry [:default (keyword func-name)]) :pre-validate)
                 (apply [order]))                                                            ; call pre validate
-            (apply func order args)                                                         ; call actual function
-            (-> (call (get-in registry [:default (keyword func-name)]) :post-validate)
-                (apply [order]))                                                            ; call post validate
-            order)))
+            (let [ord (apply func order args)]                                              ; call actual function
+              (-> (call (get-in registry [:default (keyword func-name)]) :post-validate)
+                (apply [ord]))                                                              ; call post validate
+              ord))))
   ;(if-not (s/valid? ::order args)
   ;  (throw (ex-info (s/explain-str ::order args)
   ;                  (s/explain-data ::order args))))
