@@ -1,4 +1,15 @@
-(ns ordermanagement.core)
+(ns ordermanagement.core
+  (:require [clojure.spec.alpha :as s]))
+
+(s/def ::order (s/keys :req-un [::id ::line-items]     ; req-un makes it so, that the namespace requirement is no longer necessary
+                       :opt-un []))
+
+(s/def ::line-items (s/* ::line-item))                                                                                                                                                                                     
+
+(s/def ::line-item (s/cat :product-ref keyword?                                                                                                                                                                            
+                   :rate-plan-ref keyword?                                                                                                                                                                          
+                   :quantity number?                                                                                                                                                                                
+                   :config keyword?))  
 
 (defn create-order []
   {:id (gensym)
@@ -38,20 +49,63 @@
   (println "Start shipping"))
 
 
-(defn registry {:default {:merge-line-items merge-line-items
+
+
+(def registry {:default {:merge-line-items merge-line-items
                           :create-line-item create-line-item
                           :remove-line-item remove-line-item
                           :estimate-order-net-price estimate-order-net-price
-                          :checkout checkout} 
-                :customer_a {:checkout customer-a-checkout} 
-                :customer_b {:create-line-item customer-b-create-line-item}})
+                          :checkout checkout}
+               :daniel { :checkout checkout}})
+                ;:customer_a {:checkout customer-a-checkout} 
+                ;:customer_b {:create-line-item customer-b-create-line-item}})
 
-(defn invoke [customer func-name & args]
-  resolve function name to function handle
-  validate spec pre 
-  apply function handle 
-  validate spec post
-  return)
+(defn- call [reg fname]
+  (let [func ((keyword fname) reg)]
+    func))
+
+(defn- fallback [func-name]
+  (let [default (get registry :default)]
+    (if (contains? default (keyword func-name))
+      (call default func-name)
+      (str "function doesn't exist in scope"))))
+
+(defn- get-func [customer func-name]
+  (if (contains? registry (keyword customer))
+    (let [lookup (get registry (keyword customer))]
+      (if (contains? lookup (keyword func-name))
+        (call lookup func-name)
+        (fallback func-name)))
+    (fallback func-name)))
+
+(defn pre-validate [order]
+  ,,,)
+
+(defn post-validate [order]
+  ,,,)
+
+(defn invoke [order customer func-name & args]
+  (let [func (get-func customer func-name)]
+        (if-not (fn? func)
+          (do
+            (throw (Exception. func))
+            (println func)
+            args)
+          (do
+            (pre-validate args)
+            (apply func order args)
+            (post-validate args))))
+  ;(if-not (s/valid? ::order args)
+  ;  (throw (ex-info (s/explain-str ::order args)
+  ;                  (s/explain-data ::order args))))
+  ;resolve function name to function handle
+  ;validate spec pre 
+  ;apply function handle 
+  ;validate spec post
+  ;return
+  ;
+  ; call function by string name: (apply (resolve (symbol func-name)) args)
+  ,,,)
 
 (defn create-rate-plan []
   {:id (gensym)
@@ -70,5 +124,15 @@
         (remove-line-item 1)                                  ; remove line item with index 1
         (create-line-item :product-c rate-plan-test 3 {})     ; add another item to order
         (create-line-item :product-c rate-plan-test 2 {})     ; add line item of same product type
-        (checkout))))
+        (checkout)))
+  (let [rate-plan-test (create-rate-plan)]
+    (-> (create-order)                                                         ; create an order
+        (invoke :daniel :create-line-item :product-a rate-plan-test 5 {})      ; add item to order
+        (invoke :daniel :create-line-item :product-b rate-plan-test 10 {})     ; add another item to order
+        (invoke :daniel :remove-line-item 1)                                   ; remove line item with index 1
+        (invoke :daniel :create-line-item :product-c rate-plan-test 3 {})      ; add another item to order
+        (invoke :daniel :create-line-item :product-c rate-plan-test 2 {})      ; add line item of same product type
+        (invoke :daniel-nonexistent :checkout)                                 ; checkout with override function
+        (invoke :daniel :checkout)                                             ; checkout with default function
+        (invoke :daniel :test))))                                              ; test function that doesn't exist throw exception
 #_(clojure.stacktrace/e)
