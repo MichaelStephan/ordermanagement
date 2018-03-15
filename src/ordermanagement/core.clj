@@ -4,12 +4,16 @@
 (s/def ::order (s/keys :req-un [::id ::line-items]     ; req-un makes it so, that the namespace requirement is no longer necessary
                        :opt-un []))
 
-(s/def ::line-items (s/* ::line-item))                                                                                                                                                                                     
+(s/def ::line-items (s/coll-of ::line-item))
 
-(s/def ::line-item (s/cat :product-ref keyword?                                                                                                                                                                            
-                   :rate-plan-ref keyword?                                                                                                                                                                          
-                   :quantity number?                                                                                                                                                                                
-                   :config keyword?))  
+(s/def ::line-item (s/keys :req-un [::product-ref ::rate-plan-ref ::quantity]
+                           :opt-un [::config]))
+
+(s/def ::rate-plan-ref (s/keys :req-un [::id ::price]
+                               :opt-un []))
+
+(s/def ::rate-plan (s/keys :req-un [::id ::price]
+                           :opt-un []))
 
 (defn create-order []
   {:id (gensym)
@@ -74,10 +78,16 @@
   (println "post-validate-estimate-order-net-price"))
 
 (defn- pre-validate-checkout [order]
-  (println "pre-validate-checkout"))
+  (println "pre-validate-checkout")
+  (if-not  (s/valid? ::order order)
+    (throw (ex-info (s/explain-str ::order order)
+                    (s/explain-data ::order order)))))
 
 (defn- post-validate-checkout [order]
-  (println "post-validate-checkout"))
+  (println "post-validate-checkout")
+  (if-not  (s/valid? ::order order)
+    (throw (ex-info (s/explain-str ::order order)
+                    (s/explain-data ::order order)))))
 
 (def registry {:default {:merge-line-items {:pre-validate pre-validate-merge-line-items
                                             :func merge-line-items
@@ -129,18 +139,7 @@
             (let [ord (apply func order args)]                                              ; call actual function
               (-> (call (get-in registry [:default (keyword func-name)]) :post-validate)
                 (apply [ord]))                                                              ; call post validate
-              ord))))
-  ;(if-not (s/valid? ::order args)
-  ;  (throw (ex-info (s/explain-str ::order args)
-  ;                  (s/explain-data ::order args))))
-  ;resolve function name to function handle
-  ;validate spec pre 
-  ;apply function handle 
-  ;validate spec post
-  ;return
-  ;
-  ; call function by string name: (apply (resolve (symbol func-name)) args)
-  ,,,)
+              ord)))))
 
 (defn create-rate-plan []
   {:id (gensym)
