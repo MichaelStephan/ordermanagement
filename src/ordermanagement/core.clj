@@ -1,5 +1,6 @@
 (ns ordermanagement.core
-  (:require [clojure.spec.alpha :as s]))
+  (:require [clojure.spec.alpha :as s]
+            [clojure.spec.test.alpha :as stest]))
 
 (s/def ::product-ref keyword?)
 (s/def ::price (s/and double? #(> % 0)))
@@ -32,17 +33,29 @@
 (println (s/exercise :com.hybris.orm.one-item/order))
 
 (s/fdef checkout
-  :args :com.hybris.orm.one-item/order
+  :args (s/cat :order :com.hybris.orm.one-item/order)
   :ret :com.hybris.orm.checkout/order)
 
-(s/exercise-fn `checkout)
-
 (s/fdef remove-line-item
-        :args :com.hybris.orm.one-item/order
+        :args (s/cat :order :com.hybris.orm.one-item/order
+                     :idx int?)
         :ret :com.hybris.orm.one-item/order
-        :fn #(< (count (-> :ret % :line-items)) (count (-> % :args :line-items))))
+        :fn #(< (count (-> :ret % :order :line-items)) (count (-> % :args :order :line-items))))
 
-;(s/exercise-fn `remove-line-item)
+(s/fdef create-line-item
+        :args (s/cat :order :com.hybris.orm.initial/order
+                     :product-ref ::product-ref
+                     :rate-plan-ref ::rate-plan-ref
+                     :quantity int?
+                     :config any?)
+        :ret :com.hybris.orm.one-item/order
+        :fn #(< (count (-> :ret % :order :line-items)) (+ (count (-> % :args :order :line-items)) 1))) ; this should be enhanced, it can only be true if the line items are not merged
+
+
+(stest/check `checkout) ; careful executing this line, takes about 5 minutes until it runs in an OutOfMemoryException
+(s/exercise-fn `create-line-item)
+(s/exercise-fn `remove-line-item)
+(s/exercise-fn `checkout)
 
 (defn create-order []
   {:id (gensym)
