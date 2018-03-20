@@ -1,19 +1,48 @@
 (ns ordermanagement.core
   (:require [clojure.spec.alpha :as s]))
 
-(s/def ::order (s/keys :req-un [::id ::line-items]     ; req-un makes it so, that the namespace requirement is no longer necessary
-                       :opt-un []))
-
-(s/def ::line-items (s/coll-of ::line-item))
-
+(s/def ::product-ref keyword?)
+(s/def ::price (s/and double? #(> % 0)))
+(s/def ::quantity (s/and int? #(> % 0)))
+(s/def ::id any?)
+(s/def ::config (s/coll-of any?))
 (s/def ::line-item (s/keys :req-un [::product-ref ::rate-plan-ref ::quantity]
                            :opt-un [::config]))
+(s/def ::rate-plan (s/keys :req-un [::id ::price]))
+(s/def ::rate-plan-ref ::rate-plan)
 
-(s/def ::rate-plan-ref (s/keys :req-un [::id ::price]
-                               :opt-un []))
 
-(s/def ::rate-plan (s/keys :req-un [::id ::price]
-                           :opt-un []))
+(s/def :com.hybris.orm.initial/id ::id)
+(s/def :com.hybris.orm.initial/line-items (s/* :com.hybris.orm.initial/line-item)) ; 0 or more
+(s/def :com.hybris.orm.initial/line-item ::line-item)
+(s/def :com.hybris.orm.initial/order (s/keys :req-un [::id :com.hybris.orm.initial/line-items]))
+
+
+(s/def :com.hybris.orm.one-item/id ::id)
+(s/def :com.hybris.orm.one-item/line-items (s/+ :com.hybris.orm.one-item/line-item)) ; 1 or more
+(s/def :com.hybris.orm.one-item/line-item ::line-item)
+(s/def :com.hybris.orm.one-item/order (s/keys :req-un [::id :com.hybris.orm.one-item/line-items]))
+
+
+(s/def :com.hybris.orm.checkout/id ::id)
+(s/def :com.hybris.orm.checkout/line-items (s/+ :com.hybris.orm.checkout/line-item)) ; 1 or more
+(s/def :com.hybris.orm.checkout/line-item ::line-item)
+(s/def :com.hybris.orm.checkout/order (s/keys :req-un [::id :com.hybris.orm.checkout/line-items]))
+
+(println (s/exercise :com.hybris.orm.one-item/order))
+
+(s/fdef checkout
+  :args :com.hybris.orm.one-item/order
+  :ret :com.hybris.orm.checkout/order)
+
+(s/exercise-fn `checkout)
+
+(s/fdef remove-line-item
+        :args :com.hybris.orm.one-item/order
+        :ret :com.hybris.orm.one-item/order
+        :fn #(< (count (-> :ret % :line-items)) (count (-> % :args :line-items))))
+
+;(s/exercise-fn `remove-line-item)
 
 (defn create-order []
   {:id (gensym)
@@ -60,10 +89,16 @@
   (println "post-validate-merge-line-items"))
 
 (defn- pre-validate-create-line-item [order]
-  (println "pre-validate-create-line-item"))
+  (println "pre-validate-create-line-item")
+  (if-not (s/valid? :com.hybris.orm.initial/order order)
+    (throw (ex-info (s/explain-str :com.hybris.orm.initial/order order)
+                    (s/explain-data :com.hybris.orm.initial/order order)))))
 
 (defn- post-validate-create-line-item [order]
-  (println "post-validate-create-line-item"))
+  (println "post-validate-create-line-item")
+  (if-not (s/valid? :com.hybris.orm.one-item/order order)
+    (throw (ex-info (s/explain-str :com.hybris.orm.one-item/order order)
+                    (s/explain-data :com.hybris.orm.one-item/order order)))))
 
 (defn- pre-validate-remove-line-item [order]
   (println "pre-validate-remove-line-item"))
@@ -79,15 +114,15 @@
 
 (defn- pre-validate-checkout [order]
   (println "pre-validate-checkout")
-  (if-not  (s/valid? ::order order)
-    (throw (ex-info (s/explain-str ::order order)
-                    (s/explain-data ::order order)))))
+  (if-not  (s/valid? :com.hybris.orm.one-item/order order)
+    (throw (ex-info (s/explain-str :com.hybris.orm.one-item/order order)
+                    (s/explain-data :com.hybris.orm.one-item/order order)))))
 
 (defn- post-validate-checkout [order]
   (println "post-validate-checkout")
-  (if-not  (s/valid? ::order order)
-    (throw (ex-info (s/explain-str ::order order)
-                    (s/explain-data ::order order)))))
+  (if-not  (s/valid? :com.hybris.orm.one-item/order order)
+    (throw (ex-info (s/explain-str :com.hybris.orm.one-item/order order)
+                    (s/explain-data :com.hybris.orm.one-item/order order)))))
 
 (def registry {:default {:merge-line-items {:pre-validate pre-validate-merge-line-items
                                             :func merge-line-items
@@ -168,5 +203,8 @@
         (invoke :daniel :create-line-item :product-c rate-plan-test 2 {})      ; add line item of same product type
         (invoke :daniel-nonexistent :checkout)                                 ; checkout with override function
         (invoke :daniel :checkout)                                             ; checkout with default function
-        (invoke :daniel :test))))                                              ; test function that doesn't exist throw exception
+        (invoke :daniel :test)))                                               ; test function that doesn't exist throw exception
+  (let [rate-plan-test (create-rate-plan)]
+    (-> (create-order)
+        (invoke :daniel :checkout))))
 #_(clojure.stacktrace/e)
