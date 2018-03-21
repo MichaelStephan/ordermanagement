@@ -1,61 +1,7 @@
 (ns ordermanagement.core
   (:require [clojure.spec.alpha :as s]
+            [ordermanagement.schema :as schema]
             [clojure.spec.test.alpha :as stest]))
-
-(s/def ::product-ref keyword?)
-(s/def ::price (s/and double? #(> % 0)))
-(s/def ::quantity (s/and int? #(> % 0)))
-(s/def ::id any?)
-(s/def ::config (s/coll-of any?))
-(s/def ::line-item (s/keys :req-un [::product-ref ::rate-plan-ref ::quantity]
-                           :opt-un [::config]))
-(s/def ::rate-plan (s/keys :req-un [::id ::price]))
-(s/def ::rate-plan-ref ::rate-plan)
-
-
-(s/def :com.hybris.orm.initial/id ::id)
-(s/def :com.hybris.orm.initial/line-items (s/* :com.hybris.orm.initial/line-item)) ; 0 or more
-(s/def :com.hybris.orm.initial/line-item ::line-item)
-(s/def :com.hybris.orm.initial/order (s/keys :req-un [::id :com.hybris.orm.initial/line-items]))
-
-
-(s/def :com.hybris.orm.one-item/id ::id)
-(s/def :com.hybris.orm.one-item/line-items (s/+ :com.hybris.orm.one-item/line-item)) ; 1 or more
-(s/def :com.hybris.orm.one-item/line-item ::line-item)
-(s/def :com.hybris.orm.one-item/order (s/keys :req-un [::id :com.hybris.orm.one-item/line-items]))
-
-
-(s/def :com.hybris.orm.checkout/id ::id)
-(s/def :com.hybris.orm.checkout/line-items (s/+ :com.hybris.orm.checkout/line-item)) ; 1 or more
-(s/def :com.hybris.orm.checkout/line-item ::line-item)
-(s/def :com.hybris.orm.checkout/order (s/keys :req-un [::id :com.hybris.orm.checkout/line-items]))
-
-(println (s/exercise :com.hybris.orm.one-item/order))
-
-(s/fdef checkout
-  :args (s/cat :order :com.hybris.orm.one-item/order)
-  :ret :com.hybris.orm.checkout/order)
-
-(s/fdef remove-line-item
-        :args (s/cat :order :com.hybris.orm.one-item/order
-                     :idx int?)
-        :ret :com.hybris.orm.one-item/order
-        :fn #(< (count (-> :ret % :order :line-items)) (count (-> % :args :order :line-items))))
-
-(s/fdef create-line-item
-        :args (s/cat :order :com.hybris.orm.initial/order
-                     :product-ref ::product-ref
-                     :rate-plan-ref ::rate-plan-ref
-                     :quantity int?
-                     :config any?)
-        :ret :com.hybris.orm.one-item/order
-        :fn #(< (count (-> :ret % :order :line-items)) (+ (count (-> % :args :order :line-items)) 1))) ; this should be enhanced, it can only be true if the line items are not merged
-
-
-(stest/check `checkout) ; careful executing this line, takes about 5 minutes until it runs in an OutOfMemoryException
-(s/exercise-fn `create-line-item)
-(s/exercise-fn `remove-line-item)
-(s/exercise-fn `checkout)
 
 (defn create-order []
   {:id (gensym)
@@ -153,8 +99,6 @@
                                      :func checkout
                                      :post-validate post-validate-checkout}}
                :daniel { :checkout checkout}})
-                ;:customer_a {:checkout customer-a-checkout} 
-                ;:customer_b {:create-line-item customer-b-create-line-item}})
 
 (defn- call [reg fname]
   (let [func ((keyword fname) reg)]
@@ -193,31 +137,3 @@
   {:id (gensym)
    :price 5.0})
 
-(comment
-  (create-order)
-  (-> (create-order)
-      (create-line-item :product-a :rate-plan-a 5 {})
-      (create-line-item :product-a :rate-plan-b 5 {}))
-  (remove-line-item {:line-items [:a :b :c]} 1)
-  (let [rate-plan-test (create-rate-plan)]
-    (-> (create-order)                                        ; create an order
-        (create-line-item :product-a rate-plan-test 5 {})     ; add item to order
-        (create-line-item :product-b rate-plan-test 10 {})    ; add another item to order
-        (remove-line-item 1)                                  ; remove line item with index 1
-        (create-line-item :product-c rate-plan-test 3 {})     ; add another item to order
-        (create-line-item :product-c rate-plan-test 2 {})     ; add line item of same product type
-        (checkout)))
-  (let [rate-plan-test (create-rate-plan)]
-    (-> (create-order)                                                         ; create an order
-        (invoke :daniel :create-line-item :product-a rate-plan-test 5 {})      ; add item to order
-        (invoke :daniel :create-line-item :product-b rate-plan-test 10 {})     ; add another item to order
-        (invoke :daniel :remove-line-item 1)                                   ; remove line item with index 1
-        (invoke :daniel :create-line-item :product-c rate-plan-test 3 {})      ; add another item to order
-        (invoke :daniel :create-line-item :product-c rate-plan-test 2 {})      ; add line item of same product type
-        (invoke :daniel-nonexistent :checkout)                                 ; checkout with override function
-        (invoke :daniel :checkout)                                             ; checkout with default function
-        (invoke :daniel :test)))                                               ; test function that doesn't exist throw exception
-  (let [rate-plan-test (create-rate-plan)]
-    (-> (create-order)
-        (invoke :daniel :checkout))))
-#_(clojure.stacktrace/e)
