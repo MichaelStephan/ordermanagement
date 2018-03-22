@@ -1,6 +1,6 @@
 (ns ordermanagement.core
   (:require [clojure.spec.alpha :as s]
-            [ordermanagement.schema :as schema]
+            [ordermanagement.schema :refer :all]
             [clojure.spec.test.alpha :as stest]))
 
 (defn create-order []
@@ -36,49 +36,49 @@
   (assoc order :net-price (reduce + (map estimate-line-item-net-price (order :line-items)))))
 
 (defn checkout [order]
-  (println "Make user pay $" (some-> order estimate-order-net-price :net-price))
-  (println "Items in cart:" (count (:line-items order)))
-  (println "Start shipping")
-  order)
+  (assoc order :net-price (some-> order estimate-order-net-price :net-price)))
 
 (defn- pre-validate-merge-line-items [order]
-  (println "pre-validate-merge-line-items"))
+  ; do stuff
+  )
 
 (defn- post-validate-merge-line-items [order]
-  (println "post-validate-merge-line-items"))
+  ; do stuff
+  )
 
 (defn- pre-validate-create-line-item [order]
-  (println "pre-validate-create-line-item")
   (if-not (s/valid? :com.hybris.orm.initial/order order)
     (throw (ex-info (s/explain-str :com.hybris.orm.initial/order order)
                     (s/explain-data :com.hybris.orm.initial/order order)))))
 
 (defn- post-validate-create-line-item [order]
-  (println "post-validate-create-line-item")
   (if-not (s/valid? :com.hybris.orm.one-item/order order)
     (throw (ex-info (s/explain-str :com.hybris.orm.one-item/order order)
                     (s/explain-data :com.hybris.orm.one-item/order order)))))
 
 (defn- pre-validate-remove-line-item [order]
-  (println "pre-validate-remove-line-item"))
+  ; do stuff
+  )
 
 (defn- post-validate-remove-line-item [order]
-  (println "post-validate-remove-line-item"))
+  ; do stuff
+  )
 
 (defn- pre-validate-estimate-order-net-price [order]
-  (println "pre-validate-estimate-order-net-price"))
+  ; do stuff
+  )
+
 
 (defn- post-validate-estimate-order-net-price [order]
-  (println "post-validate-estimate-order-net-price"))
+  ; do stuff
+  )
 
 (defn- pre-validate-checkout [order]
-  (println "pre-validate-checkout")
   (if-not  (s/valid? :com.hybris.orm.one-item/order order)
     (throw (ex-info (s/explain-str :com.hybris.orm.one-item/order order)
                     (s/explain-data :com.hybris.orm.one-item/order order)))))
 
 (defn- post-validate-checkout [order]
-  (println "post-validate-checkout")
   (if-not  (s/valid? :com.hybris.orm.one-item/order order)
     (throw (ex-info (s/explain-str :com.hybris.orm.one-item/order order)
                     (s/explain-data :com.hybris.orm.one-item/order order)))))
@@ -112,9 +112,14 @@
 
 (defn- get-func [customer func-name]
   (if (contains? registry (keyword customer))
-    (let [lookup (get registry (keyword customer))]
-      (if (contains? lookup (keyword func-name))
-        (call lookup func-name)
+    (do
+      (if (= :default (keyword customer))
+        (fallback func-name))
+      (do
+        (let [lookup (get registry (keyword customer))]
+          (if (contains? lookup (keyword func-name))
+          (call lookup func-name)
+          (fallback func-name)))
         (fallback func-name)))
     (fallback func-name)))
 
@@ -123,7 +128,6 @@
         (if-not (fn? func)
           (do
             (throw (Exception. func))
-            (println func)
             order)
           (do
             (-> (call (get-in registry [:default (keyword func-name)]) :pre-validate)
@@ -137,3 +141,7 @@
   {:id (gensym)
    :price 5.0})
 
+
+(comment
+  (s/exercise-fn `checkout)
+  (stest/summarize-results (stest/check `checkout)))

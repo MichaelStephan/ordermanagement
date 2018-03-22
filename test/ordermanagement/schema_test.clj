@@ -1,9 +1,15 @@
 (ns ordermanagement.schema-test
   (:require [clojure.test :refer :all]
-            [ordermanagement.schema]
+            [clojure.pprint :as pprint]
             [ordermanagement.core :refer :all]
+            [ordermanagement.schema :refer :all]
             [clojure.spec.alpha :as s]
             [clojure.spec.test.alpha :as stest]))
+
+; Instrument will tell us if we violate the spec when calling a function
+(stest/instrument `checkout)
+(stest/instrument `create-line-item)
+(stest/instrument `remove-line-item)
 
 (deftest schema-def-test
   (testing "ID spec"
@@ -33,16 +39,17 @@
     (is (s/valid? :com.hybris.orm.initial/order (remove-line-item (create-line-item (create-order) :product-a (create-rate-plan) 5 {}) 1))))
   (testing "Remove line item will work for an order with two items and still have one item"
     (is (s/valid? :com.hybris.orm.one-item/order (remove-line-item (create-line-item (create-line-item (create-order) :product-a (create-rate-plan) 5 {})  :product-b (create-rate-plan) 5 {}) 1))))
-  (testing "Remove line item will not work for an order with no item"
-    (is (s/valid? :com.hybris.orm.initial/order (remove-line-item (create-order) 1)))))
+  (testing "Checkout order shall have net price"
+    (is (s/valid? :com.hybris.orm.checkout/order (checkout (create-line-item (create-order) :product-a (create-rate-plan) 5 {}))))))
 
 (deftest schema-function-test
   (testing "Generated data should not break create-line-item"
-    (is (not (nil? (s/exercise-fn `create-line-item))))))
-
+    (is (not (nil? (s/exercise-fn `create-line-item))))
+    (is (not (nil? (s/exercise-fn `remove-line-item))))
+    (is (not (nil? (s/exercise-fn `checkout))))))
 
 (comment
-  (stest/check `checkout) ; careful executing this line, takes about 5 minutes until it runs in an OutOfMemoryException
-  (s/exercise-fn `create-line-item)
-  (s/exercise-fn `remove-line-item)
-  (s/exercise-fn `checkout))
+  "Only manually execute these functions"
+  (-> `checkout stest/check stest/summarize-results) ; careful executing this line, takes about 5 minutes until it runs in an OutOfMemoryException
+  (-> `create-line-item stest/check stest/summarize-results)
+  (-> `remove-line-item stest/check stest/summarize-results))
