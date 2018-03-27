@@ -1,7 +1,8 @@
 (ns ordermanagement.core
   (:require [clojure.spec.alpha :as s]
             [ordermanagement.schema :refer :all]
-            [clojure.spec.test.alpha :as stest]))
+            [clojure.spec.test.alpha :as stest]
+            [datomic.api :as d]))
 
 (defn create-order []
   {:id (gensym)
@@ -36,7 +37,16 @@
   (assoc order :net-price (reduce + (map estimate-line-item-net-price (order :line-items)))))
 
 (defn checkout [order]
-  (assoc order :net-price (some-> order estimate-order-net-price :net-price)))
+  (let [priced-order (assoc order :net-price (some-> order estimate-order-net-price :net-price))]
+    (let [uri "datomic:dev://localhost:4334/ordermanagement"]
+      (let [conn (d/connect uri)]
+        (d/transact conn order-schema)
+        (d/transact conn rate-plan-schema)
+        (d/transact conn product-schema)
+        (d/transact conn line-item-schema)
+        (d/transact conn [priced-order])
+        ))
+    priced-order))
 
 (defn- pre-validate-merge-line-items [order]
   ; do stuff
@@ -79,9 +89,9 @@
                     (s/explain-data :com.hybris.orm.one-item/order order)))))
 
 (defn- post-validate-checkout [order]
-  (if-not  (s/valid? :com.hybris.orm.one-item/order order)
-    (throw (ex-info (s/explain-str :com.hybris.orm.one-item/order order)
-                    (s/explain-data :com.hybris.orm.one-item/order order)))))
+  (if-not  (s/valid? :com.hybris.orm.checkout/order order)
+    (throw (ex-info (s/explain-str :com.hybris.orm.checkout/order order)
+                    (s/explain-data :com.hybris.orm.checkout/order order)))))
 
 (def registry {:default {:merge-line-items {:pre-validate pre-validate-merge-line-items
                                             :func merge-line-items
@@ -145,3 +155,9 @@
 (comment
   (s/exercise-fn `checkout)
   (stest/summarize-results (stest/check `checkout)))
+
+(comment
+  (d/create-database "datomic:dev://localhost:4334/ordermanagement")
+  (-> (create-order)
+      (invoke :default :create-line-item :product-b (create-rate-plan) 2 {})
+      (invoke :default :checkout)))

@@ -54,3 +54,60 @@
         :fn #(< (+ (count (-> :ret % :order :line-items))) (count (-> % :args :order :line-items)))) ; this should be enhanced, it can only be true if the line items are not merged
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; DB schemas for persistence
+
+(def order-schema [{:db/ident :order/id
+                    :db/valueType :db.type/string
+                    :db/cardinality :db.cardinality/one
+                    :db/doc "The ID of the order"}
+
+                   {:db/ident :order/line-item
+                    :db/valueType :db.type/ref
+                    :db/cardinality :db.cardinality/many
+                    :db/doc "The list of line items"}
+
+                   {:db/ident :order/net-price
+                    :db/valueType :db.type/double
+                    :db/cardinality :db.cardinality/one
+                    :db/doc "Net price of the order after being calculated"}])
+
+(def line-item-schema [{:db/ident :line-item/id
+                        :db/valueType :db.type/string
+                        :db/cardinality :db.cardinality/one
+                        :db/doc "The ID of the line item"}
+
+                       {:db/ident :line-item/product
+                        :db/valueType :db.type/ref
+                        :db/cardinality :db.cardinality/one
+                        :db/doc "The product contained in this line"}
+
+                       {:db/ident :line-item/rate-plan
+                        :db/valueType :db.type/ref
+                        :db/cardinality :db.cardinality/one
+                        :db/doc "The rate-plan this line-item is priced with"}
+
+                       {:db/ident :line-item/quantity
+                        :db/valueType :db.type/integer
+                        :db/cardinality :db.cardinality/one
+                        :db/doc "The amount of products referenced to the rate-plan for price calculation"}
+
+                       {:db/ident :line-item/config
+                        :db/valueType :db.type/string
+                        :db/cardinality :db.cardinality/many
+                        :db/doc "line item configuration, currently not specified in more detail"}])
+
+(def product-schema [{:db/ident :product/id
+                      :db/valueType :db.type/string
+                      :db/cardinality :db.cardinality/one
+                      :db/doc "The ID of the product"}])
+
+(def rate-plan-schema [{:db/ident :rate-plan/id
+                        :db/valueType :db.type/string
+                        :db/cardinality :db.cardinality/one
+                        :db/doc "The ID of the rate-plan"}
+
+                       {:db/ident :rate-plan/price
+                        :db/valueType :db.type/double
+                        :db/cardinality :db.cardinality/one
+                        :db/doc "The price of an item in a rate-plan"}])
