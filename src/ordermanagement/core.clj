@@ -155,6 +155,13 @@
   (stest/summarize-results (stest/check `checkout)))
 
 (comment
+ (let [uri "datomic:dev://localhost:4334/ordermanagement"
+       conn (d/connect uri)]
+    (d/transact conn [{:order/id "abc"
+                       :order/line-item ["a" "b"]}])))
+
+
+(comment
   (let [uri "datomic:dev://localhost:4334/ordermanagement"]
     (d/create-database uri)
     (let [conn (d/connect uri)]
@@ -165,3 +172,34 @@
   (-> (create-order)
       (invoke :default :create-line-item :product-b (create-rate-plan) 2 {})
       (invoke :default :checkout)))
+
+
+(comment
+  (def movie-schema [{:db/ident :movie/title
+                           :db/valueType :db.type/string
+                           :db/cardinality :db.cardinality/one
+                           :db/doc "The title of the movie"}
+
+                          {:db/ident :movie/genre
+                           :db/valueType :db.type/string
+                           :db/cardinality :db.cardinality/one
+                           :db/doc "The genre of the movie"}
+
+                          {:db/ident :movie/cast
+                           :db/valueType :db.type/string
+                           :db/cardinality :db.cardinality/many
+                           :db/doc "Movie cast"}
+
+                          {:db/ident :movie/release-year
+                           :db/valueType :db.type/long
+                           :db/cardinality :db.cardinality/one
+                           :db/doc "The year the movie was released in theaters"}])
+
+  (let [uri "datomic:dev://localhost:4334/ordermanagement"
+        conn (d/connect uri)]
+    (d/transact conn [{:movie/title "from dusk till dawn"
+                       :movie/genre "action"
+                       :movie/cast ["quentin" "cloony"]
+                       :movie/release-year 2000}])
+    #_(d/transact conn movie-schema)
+    #_(d/transact conn {:tx-data movie-schema})))
