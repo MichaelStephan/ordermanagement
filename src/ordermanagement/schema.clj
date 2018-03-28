@@ -57,6 +57,21 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; DB schemas for persistence
 
+(def order-db-keys (array-map :id :order/id
+                              :line-item :order/line-item
+                              :net-price :order/net-price))
+
+(def line-item-db-keys (array-map :id :line-item/id
+                                  :product-ref :line-item/product
+                                  :rate-plan-ref :line-item/rate-plan
+                                  :quantity :line-item/quantity
+                                  :config :line-item/config))
+
+(def product-db-keys (array-map :id :product/id))
+
+(def rate-plan-db-keys (array-map :id :rate-plan/id
+                                  :price :rate-plan/price))
+
 (def order-schema [{:db/ident :order/id
                     :db/valueType :db.type/string
                     :db/cardinality :db.cardinality/one
@@ -88,7 +103,7 @@
                         :db/doc "The rate-plan this line-item is priced with"}
 
                        {:db/ident :line-item/quantity
-                        :db/valueType :db.type/integer
+                        :db/valueType :db.type/long
                         :db/cardinality :db.cardinality/one
                         :db/doc "The amount of products referenced to the rate-plan for price calculation"}
 

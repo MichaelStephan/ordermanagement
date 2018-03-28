@@ -40,11 +40,9 @@
   (let [priced-order (assoc order :net-price (some-> order estimate-order-net-price :net-price))]
     (let [uri "datomic:dev://localhost:4334/ordermanagement"]
       (let [conn (d/connect uri)]
-        (d/transact conn order-schema)
-        (d/transact conn rate-plan-schema)
-        (d/transact conn product-schema)
-        (d/transact conn line-item-schema)
-        (d/transact conn [priced-order])
+        (println (priced-order :line-items))
+        (let [order-renamed (clojure.set/rename-keys priced-order order-db-keys)]
+          (println (d/transact conn [order-renamed])))
         ))
     priced-order))
 
@@ -157,7 +155,13 @@
   (stest/summarize-results (stest/check `checkout)))
 
 (comment
-  (d/create-database "datomic:dev://localhost:4334/ordermanagement")
+  (let [uri "datomic:dev://localhost:4334/ordermanagement"]
+    (d/create-database uri)
+    (let [conn (d/connect uri)]
+        (d/transact conn order-schema)
+        (d/transact conn rate-plan-schema)
+        (d/transact conn product-schema)
+        (d/transact conn line-item-schema)))
   (-> (create-order)
       (invoke :default :create-line-item :product-b (create-rate-plan) 2 {})
       (invoke :default :checkout)))
