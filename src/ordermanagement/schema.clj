@@ -58,7 +58,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; DB schemas for persistence
 
 (def order-db-keys (array-map :id :order/id
-                              :line-item :order/line-item
+                              :line-items :order/line-item
                               :net-price :order/net-price))
 
 (def line-item-db-keys (array-map :id :line-item/id
