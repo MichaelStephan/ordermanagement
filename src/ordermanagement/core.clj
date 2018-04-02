@@ -149,7 +149,7 @@
 (defn transform-to-db-order [order]
   (let [db-order {:order/id (str (get order :id))
                   :order/net-price (or (get order :net-price) 0.0)}]
-    (assoc db-order :order/line-item
+    (assoc db-order :order/line-item ; assoc not yet working, line-items are not getting attached
            (into []
                  (map (fn [line-item]
                         (let [db-product {:product/id (str (or (get-in line-item [:product-ref :id]) (gensym)))}]
