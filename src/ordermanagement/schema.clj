@@ -80,6 +80,7 @@
                    {:db/ident :order/line-item
                     :db/valueType :db.type/ref
                     :db/cardinality :db.cardinality/many
+                    :db/isComponent true
                     :db/doc "The list of line items"}
 
                    {:db/ident :order/net-price
@@ -95,11 +96,13 @@
                        {:db/ident :line-item/product
                         :db/valueType :db.type/ref
                         :db/cardinality :db.cardinality/one
+                        :db/isComponent true
                         :db/doc "The product contained in this line"}
 
                        {:db/ident :line-item/rate-plan
                         :db/valueType :db.type/ref
                         :db/cardinality :db.cardinality/one
+                        :db/isComponent true
                         :db/doc "The rate-plan this line-item is priced with"}
 
                        {:db/ident :line-item/quantity

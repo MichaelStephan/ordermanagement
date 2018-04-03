@@ -11,6 +11,23 @@
 (def safe+ (fnil + 0 0))
 (def safe* (fnil * 0 0))
 
+(defn transform-to-db-order [order]
+  (let [db-order {:order/id (str (get order :id))
+                  :order/net-price (or (get order :net-price) 0.0)}]
+    (assoc db-order :order/line-item ; assoc not yet working, line-items are not getting attached
+           (into []
+                 (map (fn [line-item]
+                        (let [db-product {:product/id (str (or (get-in line-item [:product-ref :id]) (gensym)))}]
+                          (let [db-rate-plan {:rate-plan/id (str (or (get-in line-item [:rate-plan-ref :id])))
+                                              :rate-plan/price (get-in line-item [:rate-plan-ref :price])}]
+                            (let [db-line-item {:line-item/id (str (or (get line-item :id) (gensym)))
+                                                :line-item/config "config of line-item, currently this string"
+                                                :line-item/rate-plan db-rate-plan
+                                                :line-item/quantity (get line-item :quantity)
+                                                :line-item/product db-product}]
+                              db-line-item)))) (get order :line-items))))))
+
+
 (defn merge-line-items [{:keys [line-items] :as order}]
   (assoc order :line-items
          (into []
@@ -146,37 +163,12 @@
   {:id (gensym)
    :price 5.0})
 
-(defn transform-to-db-order [order]
-  (let [db-order {:order/id (str (get order :id))
-                  :order/net-price (or (get order :net-price) 0.0)}]
-    (assoc db-order :order/line-item ; assoc not yet working, line-items are not getting attached
-           (into []
-                 (map (fn [line-item]
-                        (let [db-product {:product/id (str (or (get-in line-item [:product-ref :id]) (gensym)))}]
-                          (let [db-rate-plan {:rate-plan/id (str (or (get-in line-item [:rate-plan-ref :id])))
-                                              :rate-plan/price (get-in line-item [:rate-plan-ref :price])}]
-                            (let [db-line-item {:line-item/id (str (or (get line-item :id) (gensym)))
-                                                :line-item/config "config of line-item, currently this string"
-                                                :line-item/rate-plan db-rate-plan
-                                                :line-item/quantity (get line-item :quantity)
-                                                :line-item/product db-product}]
-                              db-line-item)))) (get order :line-items))))
-    db-order))
 
 (comment
   (s/exercise-fn `checkout)
   (stest/summarize-results (stest/check `checkout)))
 
-(comment
-  "http://blog.datomic.com/2013/06/component-entities.html - made it work with components, currently products and rate-plans are components as well"
-  (let [uri "datomic:dev://localhost:4334/ordermanagement"
-        conn (d/connect uri)]
-    (d/transact conn [{:order/id "abc"
-                       :order/line-item [{:line-item/id "a"
-                                          :line-item/config "b"
-                                          :line-item/rate-plan {:rate-plan/id "a" :rate-plan/price 10.0}
-                                          :line-item/quantity 4
-                                          :line-item/product {:product/id "a"}}]}])))
+
 
 (comment
   (let [uri "datomic:dev://localhost:4334/ordermanagement"]
@@ -190,32 +182,4 @@
       (invoke :default :create-line-item :product-b (create-rate-plan) 2 {})
       (invoke :default :checkout)))
 
-(comment
-  (def movie-schema [{:db/ident :movie/title
-                      :db/valueType :db.type/string
-                      :db/cardinality :db.cardinality/one
-                      :db/doc "The title of the movie"}
 
-                     {:db/ident :movie/genre
-                      :db/valueType :db.type/string
-                      :db/cardinality :db.cardinality/one
-                      :db/doc "The genre of the movie"}
-
-                     {:db/ident :movie/cast
-                      :db/valueType :db.type/string
-                      :db/cardinality :db.cardinality/many
-                      :db/doc "Movie cast"}
-
-                     {:db/ident :movie/release-year
-                      :db/valueType :db.type/long
-                      :db/cardinality :db.cardinality/one
-                      :db/doc "The year the movie was released in theaters"}])
-
-  (let [uri "datomic:dev://localhost:4334/ordermanagement"
-        conn (d/connect uri)]
-    (d/transact conn [{:movie/title "from dusk till dawn"
-                       :movie/genre "action"
-                       :movie/cast ["quentin" "cloony"]
-                       :movie/release-year 2000}])
-    #_(d/transact conn movie-schema)
-    #_(d/transact conn {:tx-data movie-schema})))
